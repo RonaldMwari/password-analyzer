@@ -1,0 +1,831 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>PassGuard — Password Security Analyzer</title>
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Syne:wght@400;700;800&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0a0c10;
+      --surface: #0f1318;
+      --panel: #141920;
+      --border: #1e2530;
+      --text: #c8d6e8;
+      --muted: #4a5568;
+      --accent: #00e5ff;
+      --red: #ff3b5c;
+      --orange: #ff7a2f;
+      --yellow: #ffd23f;
+      --green: #00e676;
+      --mono: 'Share Tech Mono', monospace;
+      --sans: 'Syne', sans-serif;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 48px 16px 80px;
+      position: relative;
+      overflow-x: hidden;
+    }
+
+    /* Animated grid background */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(0,229,255,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,229,255,0.03) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* Glow blob */
+    body::after {
+      content: '';
+      position: fixed;
+      top: -200px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 700px;
+      height: 400px;
+      background: radial-gradient(ellipse, rgba(0,229,255,0.07) 0%, transparent 70%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 680px;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* ── Header ── */
+    header {
+      text-align: center;
+      margin-bottom: 48px;
+    }
+
+    .logo-tag {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--accent);
+      letter-spacing: 4px;
+      text-transform: uppercase;
+      margin-bottom: 12px;
+      opacity: 0;
+      animation: fadeUp 0.6s ease forwards;
+    }
+
+    h1 {
+      font-size: clamp(2rem, 6vw, 3.2rem);
+      font-weight: 800;
+      letter-spacing: -1px;
+      line-height: 1;
+      opacity: 0;
+      animation: fadeUp 0.6s ease 0.1s forwards;
+    }
+
+    h1 span { color: var(--accent); }
+
+    .subtitle {
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 10px;
+      letter-spacing: 1px;
+      opacity: 0;
+      animation: fadeUp 0.6s ease 0.2s forwards;
+    }
+
+    /* ── Input card ── */
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 28px;
+      margin-bottom: 20px;
+      opacity: 0;
+      animation: fadeUp 0.6s ease 0.3s forwards;
+    }
+
+    .input-wrapper {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+
+    .input-icon {
+      position: absolute;
+      left: 16px;
+      color: var(--muted);
+      font-size: 16px;
+      pointer-events: none;
+    }
+
+    #password-input {
+      width: 100%;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px 52px 16px 48px;
+      font-family: var(--mono);
+      font-size: 15px;
+      color: var(--text);
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+      letter-spacing: 1px;
+    }
+
+    #password-input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(0,229,255,0.08);
+    }
+
+    #toggle-visibility {
+      position: absolute;
+      right: 16px;
+      background: none;
+      border: none;
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 14px;
+      padding: 4px;
+      font-family: var(--mono);
+      transition: color 0.2s;
+    }
+
+    #toggle-visibility:hover { color: var(--accent); }
+
+    /* ── Strength meter ── */
+    .meter-section {
+      margin-top: 20px;
+    }
+
+    .meter-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    .meter-label {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--muted);
+      letter-spacing: 2px;
+      text-transform: uppercase;
+    }
+
+    #strength-label {
+      font-family: var(--mono);
+      font-size: 13px;
+      font-weight: bold;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      transition: color 0.3s;
+    }
+
+    .meter-bar {
+      height: 6px;
+      background: var(--surface);
+      border-radius: 99px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+    }
+
+    #meter-fill {
+      height: 100%;
+      width: 0%;
+      border-radius: 99px;
+      transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1), background 0.3s;
+    }
+
+    /* ── Stats grid ── */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-bottom: 20px;
+      opacity: 0;
+      animation: fadeUp 0.6s ease 0.4s forwards;
+    }
+
+    .stat-box {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px;
+      text-align: center;
+    }
+
+    .stat-value {
+      font-family: var(--mono);
+      font-size: 22px;
+      font-weight: bold;
+      color: var(--accent);
+      transition: color 0.3s;
+    }
+
+    .stat-label {
+      font-family: var(--mono);
+      font-size: 9px;
+      color: var(--muted);
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      margin-top: 4px;
+    }
+
+    /* ── Checks panel ── */
+    .checks-card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 20px;
+      opacity: 0;
+      animation: fadeUp 0.6s ease 0.5s forwards;
+    }
+
+    .section-title {
+      font-family: var(--mono);
+      font-size: 10px;
+      color: var(--muted);
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      margin-bottom: 16px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .check-list {
+      display: flex;
+      flex-direction: column;
+      gap: 9px;
+    }
+
+    .check-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--muted);
+      transition: color 0.2s;
+    }
+
+    .check-item.pass { color: var(--text); }
+
+    .check-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      border: 1px solid var(--muted);
+      flex-shrink: 0;
+      transition: background 0.2s, border-color 0.2s;
+    }
+
+    .check-item.pass .check-dot {
+      background: var(--green);
+      border-color: var(--green);
+      box-shadow: 0 0 6px rgba(0,230,118,0.4);
+    }
+
+    /* ── Breach check panel ── */
+    .breach-card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 20px;
+      opacity: 0;
+      animation: fadeUp 0.6s ease 0.6s forwards;
+    }
+
+    #breach-btn {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: transparent;
+      border: 1px solid var(--accent);
+      color: var(--accent);
+      font-family: var(--mono);
+      font-size: 12px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      padding: 12px 20px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background 0.2s, color 0.2s;
+      width: 100%;
+      justify-content: center;
+    }
+
+    #breach-btn:hover:not(:disabled) {
+      background: rgba(0,229,255,0.08);
+    }
+
+    #breach-btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    #breach-result {
+      margin-top: 14px;
+      font-family: var(--mono);
+      font-size: 12px;
+      line-height: 1.6;
+      display: none;
+    }
+
+    .breach-safe {
+      color: var(--green);
+      background: rgba(0,230,118,0.06);
+      border: 1px solid rgba(0,230,118,0.2);
+      border-radius: 6px;
+      padding: 12px 14px;
+    }
+
+    .breach-pwned {
+      color: var(--red);
+      background: rgba(255,59,92,0.06);
+      border: 1px solid rgba(255,59,92,0.2);
+      border-radius: 6px;
+      padding: 12px 14px;
+    }
+
+    .breach-error {
+      color: var(--yellow);
+      background: rgba(255,210,63,0.06);
+      border: 1px solid rgba(255,210,63,0.2);
+      border-radius: 6px;
+      padding: 12px 14px;
+    }
+
+    .privacy-note {
+      font-family: var(--mono);
+      font-size: 10px;
+      color: var(--muted);
+      margin-top: 10px;
+      letter-spacing: 0.5px;
+      line-height: 1.6;
+    }
+
+    /* ── Suggestions ── */
+    .suggestions-card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 20px;
+      opacity: 0;
+      animation: fadeUp 0.6s ease 0.7s forwards;
+    }
+
+    #suggestions-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .suggestion {
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--muted);
+      padding-left: 16px;
+      position: relative;
+      line-height: 1.5;
+    }
+
+    .suggestion::before {
+      content: '›';
+      position: absolute;
+      left: 0;
+      color: var(--accent);
+    }
+
+    /* ── Entropy bar ── */
+    .entropy-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-top: 14px;
+    }
+
+    .entropy-label {
+      font-family: var(--mono);
+      font-size: 10px;
+      color: var(--muted);
+      letter-spacing: 1px;
+      white-space: nowrap;
+    }
+
+    .entropy-track {
+      flex: 1;
+      height: 4px;
+      background: var(--surface);
+      border-radius: 99px;
+      overflow: hidden;
+    }
+
+    #entropy-fill {
+      height: 100%;
+      background: var(--accent);
+      border-radius: 99px;
+      width: 0%;
+      transition: width 0.4s ease;
+    }
+
+    #entropy-val {
+      font-family: var(--mono);
+      font-size: 10px;
+      color: var(--accent);
+      white-space: nowrap;
+    }
+
+    /* ── Footer ── */
+    footer {
+      text-align: center;
+      font-family: var(--mono);
+      font-size: 10px;
+      color: var(--muted);
+      letter-spacing: 2px;
+      margin-top: 8px;
+      opacity: 0;
+      animation: fadeUp 0.6s ease 0.8s forwards;
+    }
+
+    /* ── Animations ── */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(12px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    .scanning { animation: pulse 1s ease infinite; }
+
+    /* ── Responsive ── */
+    @media (max-width: 480px) {
+      .stats-grid { grid-template-columns: repeat(3, 1fr); }
+      .stat-value { font-size: 18px; }
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+
+  <header>
+    <div class="logo-tag">// Security Tool v1.0</div>
+    <h1>Pass<span>Guard</span></h1>
+    <p class="subtitle">PASSWORD STRENGTH ANALYZER + BREACH CHECKER</p>
+  </header>
+
+  <!-- Input -->
+  <div class="card">
+    <div class="input-wrapper">
+      <span class="input-icon">🔑</span>
+      <input
+        type="password"
+        id="password-input"
+        placeholder="Enter a password to analyze..."
+        autocomplete="off"
+        spellcheck="false"
+      />
+      <button id="toggle-visibility" title="Show/hide password">SHOW</button>
+    </div>
+
+    <div class="meter-section">
+      <div class="meter-header">
+        <span class="meter-label">Strength</span>
+        <span id="strength-label" style="color: var(--muted)">—</span>
+      </div>
+      <div class="meter-bar">
+        <div id="meter-fill"></div>
+      </div>
+      <div class="entropy-row">
+        <span class="entropy-label">ENTROPY</span>
+        <div class="entropy-track"><div id="entropy-fill"></div></div>
+        <span id="entropy-val">0 bits</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats-grid">
+    <div class="stat-box">
+      <div class="stat-value" id="stat-length">0</div>
+      <div class="stat-label">Length</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-value" id="stat-charset">0</div>
+      <div class="stat-label">Char Pool</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-value" id="stat-score">0<span style="font-size:12px">/100</span></div>
+      <div class="stat-label">Score</div>
+    </div>
+  </div>
+
+  <!-- Criteria checks -->
+  <div class="checks-card">
+    <div class="section-title">// Criteria Checks</div>
+    <div class="check-list" id="check-list">
+      <div class="check-item" id="check-length">
+        <div class="check-dot"></div><span>At least 12 characters</span>
+      </div>
+      <div class="check-item" id="check-upper">
+        <div class="check-dot"></div><span>Contains uppercase letters (A–Z)</span>
+      </div>
+      <div class="check-item" id="check-lower">
+        <div class="check-dot"></div><span>Contains lowercase letters (a–z)</span>
+      </div>
+      <div class="check-item" id="check-number">
+        <div class="check-dot"></div><span>Contains numbers (0–9)</span>
+      </div>
+      <div class="check-item" id="check-symbol">
+        <div class="check-dot"></div><span>Contains special characters (!@#$...)</span>
+      </div>
+      <div class="check-item" id="check-nocommon">
+        <div class="check-dot"></div><span>Not a common password</span>
+      </div>
+      <div class="check-item" id="check-norepeats">
+        <div class="check-dot"></div><span>No excessive repeated characters</span>
+      </div>
+      <div class="check-item" id="check-nosequence">
+        <div class="check-dot"></div><span>No keyboard sequences (qwerty, 12345...)</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Breach check -->
+  <div class="breach-card">
+    <div class="section-title">// HaveIBeenPwned Breach Check</div>
+    <button id="breach-btn" disabled>
+      <span id="breach-btn-text">⚡ CHECK BREACH DATABASE</span>
+    </button>
+    <div id="breach-result"></div>
+    <p class="privacy-note">
+      🔒 Privacy-safe: Only the first 5 characters of a SHA-1 hash are sent to the API.<br>
+      Your actual password never leaves your browser. (k-anonymity model)
+    </p>
+  </div>
+
+  <!-- Suggestions -->
+  <div class="suggestions-card">
+    <div class="section-title">// Recommendations</div>
+    <div id="suggestions-list">
+      <div class="suggestion">Enter a password above to see recommendations.</div>
+    </div>
+  </div>
+
+  <footer>PASSGUARD — FOR EDUCATIONAL USE ONLY</footer>
+
+</div>
+
+<script>
+  // ─────────────────────────────────────────
+  // Common passwords list (top 30 for demo)
+  // ─────────────────────────────────────────
+  const COMMON_PASSWORDS = new Set([
+    "password","password1","123456","12345678","qwerty","abc123",
+    "monkey","1234567","letmein","trustno1","dragon","baseball",
+    "iloveyou","master","sunshine","ashley","bailey","passw0rd",
+    "shadow","123123","654321","superman","qazwsx","michael",
+    "football","password2","access","hello","admin","welcome"
+  ]);
+
+  const SEQUENCES = ["qwerty","asdfgh","zxcvbn","qweasdzxc",
+                     "1234567890","abcdefghij","zyxwvutsrq"];
+
+  // ─────────────────────────────────────────
+  // Scoring engine
+  // ─────────────────────────────────────────
+  function analyzePassword(pw) {
+    const checks = {
+      length:     pw.length >= 12,
+      upper:      /[A-Z]/.test(pw),
+      lower:      /[a-z]/.test(pw),
+      number:     /[0-9]/.test(pw),
+      symbol:     /[^A-Za-z0-9]/.test(pw),
+      nocommon:   !COMMON_PASSWORDS.has(pw.toLowerCase()),
+      norepeats:  !/(.)(\1{2,})/.test(pw),
+      nosequence: !SEQUENCES.some(s => pw.toLowerCase().includes(s))
+    };
+
+    // Charset pool size
+    let pool = 0;
+    if (checks.lower)  pool += 26;
+    if (checks.upper)  pool += 26;
+    if (checks.number) pool += 10;
+    if (checks.symbol) pool += 32;
+
+    // Entropy: log2(pool^length)
+    const entropy = pool > 0 ? Math.round(pw.length * Math.log2(pool)) : 0;
+
+    // Score (0–100)
+    let score = 0;
+    score += Math.min(pw.length * 3, 30);       // up to 30 for length
+    if (checks.upper)      score += 10;
+    if (checks.lower)      score += 10;
+    if (checks.number)     score += 10;
+    if (checks.symbol)     score += 15;
+    if (checks.nocommon)   score += 10;
+    if (checks.norepeats)  score += 8;
+    if (checks.nosequence) score += 7;
+    score = Math.min(score, 100);
+
+    // Deductions
+    if (!checks.nocommon)   score = Math.min(score, 10);
+    if (!checks.norepeats)  score -= 10;
+    if (!checks.nosequence) score -= 10;
+    score = Math.max(score, 0);
+
+    // Strength label
+    let strength, color, meterPct;
+    if (pw.length === 0) {
+      strength = "—"; color = "var(--muted)"; meterPct = 0;
+    } else if (score < 25) {
+      strength = "CRITICAL"; color = "var(--red)"; meterPct = 10;
+    } else if (score < 45) {
+      strength = "WEAK"; color = "var(--orange)"; meterPct = 30;
+    } else if (score < 65) {
+      strength = "FAIR"; color = "var(--yellow)"; meterPct = 55;
+    } else if (score < 80) {
+      strength = "STRONG"; color = "var(--green)"; meterPct = 78;
+    } else {
+      strength = "EXCELLENT"; color = "var(--accent)"; meterPct = 100;
+    }
+
+    // Suggestions
+    const suggestions = [];
+    if (pw.length === 0) {
+      suggestions.push("Enter a password above to see recommendations.");
+    } else {
+      if (pw.length < 12)       suggestions.push("Use at least 12 characters — longer is stronger.");
+      if (!checks.upper)        suggestions.push("Add uppercase letters (A–Z) to increase complexity.");
+      if (!checks.lower)        suggestions.push("Include lowercase letters (a–z).");
+      if (!checks.number)       suggestions.push("Add numbers to expand the character pool.");
+      if (!checks.symbol)       suggestions.push("Special characters (!@#$%^&*) dramatically increase entropy.");
+      if (!checks.nocommon)     suggestions.push("This is a commonly known password — avoid it entirely.");
+      if (!checks.norepeats)    suggestions.push("Avoid repeating characters (e.g. 'aaa', '111').");
+      if (!checks.nosequence)   suggestions.push("Avoid keyboard sequences like 'qwerty' or '12345'.");
+      if (suggestions.length === 0) suggestions.push("Great password! Consider using a password manager to store it safely.");
+    }
+
+    return { checks, entropy, pool, score, strength, color, meterPct, suggestions };
+  }
+
+  // ─────────────────────────────────────────
+  // UI updates
+  // ─────────────────────────────────────────
+  const input       = document.getElementById('password-input');
+  const toggleBtn   = document.getElementById('toggle-visibility');
+  const meterFill   = document.getElementById('meter-fill');
+  const strengthLbl = document.getElementById('strength-label');
+  const entropyFill = document.getElementById('entropy-fill');
+  const entropyVal  = document.getElementById('entropy-val');
+  const statLength  = document.getElementById('stat-length');
+  const statCharset = document.getElementById('stat-charset');
+  const statScore   = document.getElementById('stat-score');
+  const suggList    = document.getElementById('suggestions-list');
+  const breachBtn   = document.getElementById('breach-btn');
+  const breachRes   = document.getElementById('breach-result');
+
+  const checkIds = ['length','upper','lower','number','symbol','nocommon','norepeats','nosequence'];
+
+  function updateUI(pw) {
+    const r = analyzePassword(pw);
+
+    // Meter
+    meterFill.style.width = r.meterPct + '%';
+    meterFill.style.background = r.color;
+    strengthLbl.textContent = r.strength;
+    strengthLbl.style.color = r.color;
+
+    // Entropy
+    const entropyPct = Math.min((r.entropy / 128) * 100, 100);
+    entropyFill.style.width = entropyPct + '%';
+    entropyVal.textContent = r.entropy + ' bits';
+
+    // Stats
+    statLength.textContent  = pw.length;
+    statCharset.textContent = r.pool;
+    statScore.innerHTML     = r.score + '<span style="font-size:12px">/100</span>';
+    statScore.style.color   = r.color;
+
+    // Checks
+    checkIds.forEach(id => {
+      const el = document.getElementById('check-' + id);
+      if (r.checks[id]) el.classList.add('pass');
+      else el.classList.remove('pass');
+    });
+
+    // Suggestions
+    suggList.innerHTML = r.suggestions
+      .map(s => `<div class="suggestion">${s}</div>`)
+      .join('');
+
+    // Breach button
+    breachBtn.disabled = pw.length < 4;
+    breachRes.style.display = 'none';
+    breachRes.innerHTML = '';
+  }
+
+  input.addEventListener('input', () => updateUI(input.value));
+
+  // Show/hide toggle
+  toggleBtn.addEventListener('click', () => {
+    if (input.type === 'password') {
+      input.type = 'text';
+      toggleBtn.textContent = 'HIDE';
+    } else {
+      input.type = 'password';
+      toggleBtn.textContent = 'SHOW';
+    }
+  });
+
+  // ─────────────────────────────────────────
+  // SHA-1 helper (Web Crypto API)
+  // ─────────────────────────────────────────
+  async function sha1(str) {
+    const buf = await crypto.subtle.digest(
+      'SHA-1',
+      new TextEncoder().encode(str)
+    );
+    return Array.from(new Uint8Array(buf))
+      .map(b => b.toString(16).padStart(2, '0'))
+      .join('').toUpperCase();
+  }
+
+  // ─────────────────────────────────────────
+  // HaveIBeenPwned k-anonymity check
+  // ─────────────────────────────────────────
+  breachBtn.addEventListener('click', async () => {
+    const pw = input.value;
+    if (pw.length < 4) return;
+
+    const btnText = document.getElementById('breach-btn-text');
+    btnText.textContent = '⏳ CHECKING...';
+    breachBtn.disabled = true;
+    breachRes.style.display = 'none';
+
+    try {
+      const hash    = await sha1(pw);
+      const prefix  = hash.slice(0, 5);
+      const suffix  = hash.slice(5);
+
+      const resp = await fetch(`https://api.pwnedpasswords.com/range/${prefix}`, {
+        headers: { 'Add-Padding': 'true' }
+      });
+
+      if (!resp.ok) throw new Error(`API error: ${resp.status}`);
+
+      const text    = await resp.text();
+      const lines   = text.split('\n');
+      const match   = lines.find(l => l.startsWith(suffix));
+      const count   = match ? parseInt(match.split(':')[1].trim()) : 0;
+
+      breachRes.style.display = 'block';
+      if (count > 0) {
+        breachRes.innerHTML = `
+          <div class="breach-pwned">
+            ⚠ COMPROMISED — Found <strong>${count.toLocaleString()}</strong> times in known data breaches.<br>
+            Do not use this password anywhere.
+          </div>`;
+      } else {
+        breachRes.innerHTML = `
+          <div class="breach-safe">
+            ✓ NOT FOUND — This password has not appeared in known breach databases.<br>
+            That's good, but always combine with other strong password practices.
+          </div>`;
+      }
+    } catch (err) {
+      breachRes.style.display = 'block';
+      breachRes.innerHTML = `
+        <div class="breach-error">
+          ⚡ Could not reach the breach API. Check your connection and try again.<br>
+          <small>${err.message}</small>
+        </div>`;
+    } finally {
+      btnText.textContent = '⚡ CHECK BREACH DATABASE';
+      breachBtn.disabled = false;
+    }
+  });
+</script>
+</body>
+</html>
